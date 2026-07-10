@@ -44,6 +44,9 @@ public final class ModInfoClient implements ClientModInitializer {
 	private static boolean toggleKeyWasDown;
 	private static boolean technicalVisible;
 	private static boolean technicalKeyWasDown;
+	private static boolean frameRateVisible;
+	private static boolean frameRateKeyWasDown;
+	private static final FrameRateTracker frameRateTracker = new FrameRateTracker();
 	private static boolean manualAnnouncementKeyWasDown;
 	private static ClientLevel trackedLevel;
 	private static Identifier lastBiome;
@@ -71,6 +74,18 @@ public final class ModInfoClient implements ClientModInitializer {
 				technicalVisible = !technicalVisible;
 			}
 			technicalKeyWasDown = technicalKeyDown;
+
+			boolean frameRateKeyDown = shortcutDown(client, config.frameRateToggleKey,
+					config.frameRateToggleModifiers);
+			if (client.gui.screen() == null && frameRateKeyDown && !frameRateKeyWasDown) {
+				frameRateVisible = !frameRateVisible;
+				frameRateTracker.reset();
+			}
+			frameRateKeyWasDown = frameRateKeyDown;
+			if (frameRateVisible && (client.gui.screen() != null || client.isPaused()
+					|| !client.isWindowActive() || client.gui.hud.isHidden())) {
+				frameRateTracker.reset();
+			}
 
 			boolean manualKeyDown = shortcutDown(client, config.manualAnnouncementKey,
 					config.manualAnnouncementModifiers);
@@ -101,6 +116,10 @@ public final class ModInfoClient implements ClientModInitializer {
 		Minecraft minecraft = Minecraft.getInstance();
 		if (minecraft.player == null || minecraft.level == null || minecraft.gui.hud.isHidden()) {
 			return;
+		}
+		if (frameRateVisible && minecraft.gui.screen() == null && !minecraft.isPaused()
+				&& minecraft.isWindowActive()) {
+			frameRateTracker.recordFrame(System.nanoTime());
 		}
 
 		renderAnnouncement(graphics, minecraft);
@@ -138,6 +157,20 @@ public final class ModInfoClient implements ClientModInitializer {
 		}
 		if (technicalVisible) {
 			addTechnicalLines(lines, minecraft, position);
+		}
+		if (frameRateVisible) {
+			int fps = minecraft.getFps();
+			int averageFps = frameRateTracker.averageFps();
+			int onePercentLow = frameRateTracker.onePercentLow();
+			if (config.technicalShowLabels) {
+				String average = averageFps < 0 ? "Sampling…" : Integer.toString(averageFps);
+				String low = onePercentLow < 0 ? "Sampling…" : Integer.toString(onePercentLow);
+				lines.add("FPS: " + fps + " • Avg: " + average + " • 1% Low: " + low);
+			} else {
+				String average = averageFps < 0 ? "--" : Integer.toString(averageFps);
+				String low = onePercentLow < 0 ? "--" : Integer.toString(onePercentLow);
+				lines.add(fps + " FPS • " + average + " Avg • " + low + " Low");
+			}
 		}
 		if (lines.isEmpty()) {
 			return;
@@ -201,6 +234,7 @@ public final class ModInfoClient implements ClientModInitializer {
 		long currentDay = Math.floorDiv(minecraft.level.getOverworldClockTime(), 24_000L) + 1L;
 
 		if (minecraft.level != trackedLevel) {
+			frameRateTracker.reset();
 			boolean firstWorldLoad = trackedLevel == null;
 			if (!firstWorldLoad && currentBiome != null && !currentBiome.equals(lastBiome)
 					&& config.announceNewBiome) {
@@ -274,6 +308,7 @@ public final class ModInfoClient implements ClientModInitializer {
 	}
 
 	private static void resetAnnouncementTracking() {
+		frameRateTracker.reset();
 		trackedLevel = null;
 		lastBiome = null;
 		lastDay = Long.MIN_VALUE;
@@ -358,11 +393,13 @@ public final class ModInfoClient implements ClientModInitializer {
 		config.save();
 		toggleKeyWasDown = false;
 		technicalKeyWasDown = false;
+		frameRateKeyWasDown = false;
+		frameRateTracker.reset();
 		manualAnnouncementKeyWasDown = false;
 	}
 
 	private static boolean shortcutDown(Minecraft minecraft, int key, int modifiers) {
-		if (!InputConstants.isKeyDown(minecraft.getWindow(), key)) {
+		if (key < 0 || !InputConstants.isKeyDown(minecraft.getWindow(), key)) {
 			return false;
 		}
 		if ((modifiers & InputConstants.MOD_CONTROL) != 0

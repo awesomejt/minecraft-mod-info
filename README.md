@@ -8,7 +8,7 @@ A small, client-only [Fabric](https://fabricmc.net/) mod for Minecraft Java Edit
 - Optional eight-direction heading and Minecraft clock/weather
 - On-demand light, chunk, and single-player slime-chunk details
 
-The overlay is visible by default. Press **O** to toggle it, or change that key on the mod's settings page. Pressing Minecraft's normal **F1** “Hide GUI” key also hides the overlay.
+The overlay is visible by default. Its toggle shortcut is intentionally unbound; assign one on the mod's Appearance settings page if desired. Pressing Minecraft's normal **F1** “Hide GUI” key also hides the overlay.
 
 ## Settings
 
@@ -32,9 +32,12 @@ The screen is divided into **Info**, **Appearance**, **Announce**, and **Technic
 - Optional dimension prefix and optional `Entering` wording for biome announcements
 - Manual day/biome announcements for recording sessions
 - On-demand block/sky light, chunk/local coordinates, and slime-chunk status
+- Independently toggled frame-rate row
 - **Reset**, **Cancel**, and **Done** actions
 
-Shortcuts are intentionally managed on this screen rather than added to Minecraft's global Key Binds list. Defaults are **O** for the overlay, **Ctrl+I** for technical information, and **Ctrl+N** for a manual day-plus-biome announcement.
+Shortcuts are intentionally managed on this screen rather than added to Minecraft's global Key Binds list. Defaults are **Unbound** for the regular overlay, **Ctrl+I** for technical information, **Ctrl+N** for a manual day-plus-biome announcement, and **Unbound** for frame rate. While capturing a shortcut, press **Backspace** or **Delete** to unbind it, or **Escape** to cancel.
+
+Minecraft 26.2 assigns **O** to its Friends List. Version 1.6.2 migrates the mod's former default O binding to Unbound; customized bindings remain configurable on the Appearance page.
 
 Facing and the clock are disabled by default to preserve the original compact layout. The technical fields are selected by default but remain hidden until their shortcut is pressed.
 
@@ -50,6 +53,10 @@ Slime-chunk calculation requires the world seed. The integrated single-player se
 
 Technical labels are independent of the general information labels. With technical labels enabled, slime status is `Slime chunk: Yes/No`; with labels disabled it becomes the self-explanatory `Slimes/No Slimes`.
 
+Frame rate has its own shortcut and visibility state; it is not affected by the `Ctrl+I` technical group. It records individual frame times in a fixed-size ten-second rolling window and refreshes the average FPS and 99th-percentile frame-time result once per second. Average FPS is calculated as sampled frames divided by total sampled frame time, rather than averaging individual FPS readings.
+
+The row initially shows `Sampling…` while at least two seconds of data is collected. Sampling resets after pauses, focus loss, hidden HUD, world changes, loading gaps, or toggling the row. With technical labels enabled it displays `FPS: 120 • Avg: 114 • 1% Low: 92`; without them it displays `120 FPS • 114 Avg • 92 Low`.
+
 ## Day and biome announcements
 
 When enabled, a transition displays a large centered message over a dark contrasting backdrop. The message fades in for 350 milliseconds, remains readable, then fades out over 650 milliseconds; total display time is three seconds.
@@ -59,7 +66,7 @@ When enabled, a transition displays a large centered message over a dark contras
 - Biome messages can include the dimension (`Overworld: Forest`) and can omit `Entering`.
 - Joining a world establishes the current day and biome silently, so login does not create a misleading transition announcement. Traveling to another dimension can announce its destination biome.
 - If a day and biome change together, the messages are queued and shown in order instead of one replacing the other.
-- Announcements are independent of the regular overlay's **O** toggle, but **F1** hides both as part of Minecraft's HUD.
+- Announcements are independent of the regular overlay toggle, but **F1** hides both as part of Minecraft's HUD.
 - The configured manual shortcut queues Day, Biome, or Day + Biome regardless of whether automatic transition announcements are enabled.
 
 ## Compatibility
@@ -96,7 +103,7 @@ The output must report Java 25. From this project directory, run:
 The first build downloads Gradle, Minecraft development files, Fabric Loader, and Fabric API, so it requires an internet connection. The distributable file is:
 
 ```text
-build/libs/mod-info-1.6.1.jar
+build/libs/mod-info-1.9.0.jar
 ```
 
 Do not install the `-sources.jar`; that archive is for IDE source browsing.
@@ -121,7 +128,7 @@ This uses the project-local `run/` game directory, not your normal Minecraft sav
 2. XYZ changes when the player moves.
 3. Biome changes after crossing a biome boundary (or use `/locate biome minecraft:desert` and teleport there).
 4. Day advances after `/time add 24000`.
-5. **O** hides and restores the overlay.
+5. The overlay toggle starts Unbound; binding it on the Appearance page hides and restores the overlay without colliding with Friends List.
 6. **Options → Mod Info Settings…** opens the settings screen.
 7. Each information toggle works, including all three being disabled.
 8. Disabling **Field labels** removes `XYZ:`, `Biome:`, and `Days played:` while retaining their values.
@@ -133,12 +140,13 @@ This uses the project-local `run/` game directory, not your normal Minecraft sav
 14. **Ctrl+I** toggles only the selected technical fields; chunk/local coordinates update correctly across a chunk boundary.
 15. General and technical label toggles operate independently.
 16. Single-player slime status is `Slime chunk: Yes/No` with technical labels and `Slimes/No Slimes` without them; multiplayer reports that the seed is unavailable.
-17. With day announcements enabled, `/time add 24000` shows a centered `Day N` message that fades in and out.
-18. With biome announcements enabled, crossing a biome boundary shows the configured dimension/wording format once.
-19. **Ctrl+N** queues the configured manual announcement content.
-20. Turning either automatic announcement setting off suppresses that transition type.
-21. **Cancel** discards edits; **Done** persists them after restarting Minecraft.
-22. **F1** hides the overlay and announcements with the rest of the HUD.
+17. Binding **Frame-rate toggle** shows and hides only the FPS row; it defaults to Unbound, begins in `Sampling…`, and produces a ten-second average plus 1% low after sufficient data.
+18. With day announcements enabled, `/time add 24000` shows a centered `Day N` message that fades in and out.
+19. With biome announcements enabled, crossing a biome boundary shows the configured dimension/wording format once.
+20. **Ctrl+N** queues the configured manual announcement content.
+21. Turning either automatic announcement setting off suppresses that transition type.
+22. **Cancel** discards edits; **Done** persists them after restarting Minecraft.
+23. **F1** hides the overlay and announcements with the rest of the HUD.
 
 “Days played” is Minecraft's current Overworld day count: `floor(overworldClockTime / 24000) + 1`. The first in-game day is therefore displayed as 1. Because it follows world time, commands that set the time can change the number; it is not the player's real-world session duration.
 
@@ -148,7 +156,7 @@ This uses the project-local `run/` game directory, not your normal Minecraft sav
 2. In Prism, click **Add Instance**.
 3. Select Minecraft **26.2**, choose **Fabric** in the mod-loader list, select the starred/latest stable compatible loader, and create the instance.
 4. Select the instance, click **Edit → Mods**.
-5. Click **Add File** and select `build/libs/mod-info-1.6.1.jar`.
+5. Click **Add File** and select `build/libs/mod-info-1.9.0.jar`.
 6. Add the matching **Fabric API** JAR as well. Prism's **Download Mods** button can find it; filter for Minecraft 26.2 and Fabric.
 7. In **Edit → Settings → Java**, use a Java 25 runtime if Prism did not select one automatically.
 8. Launch the instance and run the test checklist above.
@@ -157,11 +165,11 @@ Keeping this in a separate Prism instance is the safest way to prevent version o
 
 ## Install with the official Minecraft Launcher
 
-1. Build `build/libs/mod-info-1.6.1.jar`.
+1. Build `build/libs/mod-info-1.9.0.jar`.
 2. Download the Fabric Installer from Fabric's official [Minecraft Launcher installer page](https://fabricmc.net/use/installer/).
 3. Close Minecraft and the launcher, run the installer, choose **Minecraft 26.2**, keep the latest compatible loader selected, ensure **Create Profile** is checked, and install the client profile.
 4. Download **Fabric API 0.154.2+26.2** (or a newer compatible 26.2 build) from [Modrinth](https://modrinth.com/mod/fabric-api) or [CurseForge](https://www.curseforge.com/minecraft/mc-mods/fabric-api).
-5. Put both `mod-info-1.6.1.jar` and the Fabric API JAR in the game directory's `mods` folder. Remove any older `mod-info` JAR first, then create the game directory's `mods` folder if it does not exist:
+5. Put both `mod-info-1.9.0.jar` and the Fabric API JAR in the game directory's `mods` folder. Remove any older `mod-info` JAR first, then create the game directory's `mods` folder if it does not exist:
 
    - Windows: `%APPDATA%\.minecraft\mods`
    - macOS: `~/Library/Application Support/minecraft/mods`
@@ -175,7 +183,7 @@ For isolation similar to Prism, edit the Fabric installation in the official lau
 
 - **“Unsupported class file” or Java error while building:** `JAVA_HOME` or `java` points to something older than JDK 25.
 - **Fabric says a dependency is missing:** install Fabric API for Minecraft 26.2 in the same `mods` folder.
-- **The mod is not listed:** confirm the launcher profile is Fabric 26.2 and that you installed `mod-info-1.6.1.jar`, not the sources JAR.
+- **The mod is not listed:** confirm the launcher profile is Fabric 26.2 and that you installed `mod-info-1.9.0.jar`, not the sources JAR.
 - **Minecraft reports an incompatible mod set:** remove mods built for other Minecraft versions; a separate launcher instance/game directory is easiest.
 - **The overlay is absent:** enter a world, press **F1** once, then check the information toggles and toggle key under **Options → Mod Info Settings…**.
 - **Settings need to be completely cleared:** close Minecraft and delete `config/mod-info.json`; defaults are recreated on the next launch.

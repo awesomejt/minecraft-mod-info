@@ -2,6 +2,8 @@ package media.jlt.minecraft.mods.info;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
@@ -17,7 +19,9 @@ public final class OverlayConfig {
 	private static final Logger LOGGER = LoggerFactory.getLogger(ModInfoClient.MOD_ID);
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve("mod-info.json");
+	private static final int CURRENT_CONFIG_VERSION = 2;
 
+	public int configVersion = CURRENT_CONFIG_VERSION;
 	public boolean showCoordinates = true;
 	public boolean showBiome = true;
 	public boolean showDaysPlayed = true;
@@ -41,12 +45,14 @@ public final class OverlayConfig {
 	public boolean technicalShowLabels = true;
 	public int technicalToggleKey = InputConstants.KEY_I;
 	public int technicalToggleModifiers = InputConstants.MOD_CONTROL;
+	public int frameRateToggleKey = -1;
+	public int frameRateToggleModifiers = 0;
 	public boolean showBackground = true;
 	public int backgroundOpacity = 56;
 	public int boxSize = 100;
 	public int fontSize = 100;
 	public TextAlignment textAlignment = TextAlignment.LEFT;
-	public int toggleKey = InputConstants.KEY_O;
+	public int toggleKey = -1;
 	public int toggleModifiers = 0;
 	public Position position = Position.TOP_LEFT;
 
@@ -55,9 +61,25 @@ public final class OverlayConfig {
 			return new OverlayConfig();
 		}
 
-		try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
-			OverlayConfig loaded = GSON.fromJson(reader, OverlayConfig.class);
-			return loaded == null ? new OverlayConfig() : loaded.normalized();
+		try {
+			JsonObject json;
+			try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
+				json = JsonParser.parseReader(reader).getAsJsonObject();
+			}
+			boolean legacyConfig = !json.has("configVersion");
+			OverlayConfig loaded = GSON.fromJson(json, OverlayConfig.class);
+			if (loaded == null) {
+				return new OverlayConfig();
+			}
+			if (legacyConfig && loaded.toggleKey == InputConstants.KEY_O && loaded.toggleModifiers == 0) {
+				loaded.toggleKey = -1;
+			}
+			loaded.configVersion = CURRENT_CONFIG_VERSION;
+			loaded.normalized();
+			if (legacyConfig) {
+				loaded.save();
+			}
+			return loaded;
 		} catch (Exception exception) {
 			LOGGER.warn("Could not read {}; using defaults", CONFIG_PATH, exception);
 			return new OverlayConfig();
@@ -78,6 +100,7 @@ public final class OverlayConfig {
 
 	public OverlayConfig copy() {
 		OverlayConfig copy = new OverlayConfig();
+		copy.configVersion = configVersion;
 		copy.showCoordinates = showCoordinates;
 		copy.showBiome = showBiome;
 		copy.showDaysPlayed = showDaysPlayed;
@@ -101,6 +124,8 @@ public final class OverlayConfig {
 		copy.technicalShowLabels = technicalShowLabels;
 		copy.technicalToggleKey = technicalToggleKey;
 		copy.technicalToggleModifiers = technicalToggleModifiers;
+		copy.frameRateToggleKey = frameRateToggleKey;
+		copy.frameRateToggleModifiers = frameRateToggleModifiers;
 		copy.showBackground = showBackground;
 		copy.backgroundOpacity = backgroundOpacity;
 		copy.boxSize = boxSize;
@@ -116,19 +141,24 @@ public final class OverlayConfig {
 		backgroundOpacity = clamp(backgroundOpacity, 0, 100);
 		boxSize = clamp(boxSize, 50, 200);
 		fontSize = clamp(fontSize, 50, 200);
-		if (toggleKey < 0) {
-			toggleKey = InputConstants.KEY_O;
+		if (toggleKey < -1) {
+			toggleKey = -1;
 		}
-		if (manualAnnouncementKey < 0) {
+		if (manualAnnouncementKey < -1) {
 			manualAnnouncementKey = InputConstants.KEY_N;
 		}
-		if (technicalToggleKey < 0) {
+		if (technicalToggleKey < -1) {
 			technicalToggleKey = InputConstants.KEY_I;
 		}
+		if (frameRateToggleKey < -1) {
+			frameRateToggleKey = -1;
+		}
+		configVersion = CURRENT_CONFIG_VERSION;
 		int allowedModifiers = InputConstants.MOD_SHIFT | InputConstants.MOD_CONTROL | InputConstants.MOD_ALT;
 		toggleModifiers &= allowedModifiers;
 		manualAnnouncementModifiers &= allowedModifiers;
 		technicalToggleModifiers &= allowedModifiers;
+		frameRateToggleModifiers &= allowedModifiers;
 		if (headingLabel == null) {
 			headingLabel = HeadingLabel.FACING;
 		}

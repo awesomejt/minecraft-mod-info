@@ -142,6 +142,9 @@ public final class ModInfoConfigScreen extends Screen {
 		addShortcutButton(right, row(0), "Technical toggle", CaptureTarget.TECHNICAL,
 				() -> shortcutMessage("Technical toggle", editing.technicalToggleKey,
 						editing.technicalToggleModifiers));
+		addShortcutButton(right, row(1), "Frame-rate toggle", CaptureTarget.FRAME_RATE,
+				() -> shortcutMessage("Frame-rate toggle", editing.frameRateToggleKey,
+						editing.frameRateToggleModifiers));
 	}
 
 	private void addBooleanButton(int x, int y, String label, BooleanGetter getter, BooleanSetter setter) {
@@ -187,30 +190,43 @@ public final class ModInfoConfigScreen extends Screen {
 				finishCapture();
 				return true;
 			}
+			if (event.key() == InputConstants.KEY_BACKSPACE || event.key() == InputConstants.KEY_DELETE) {
+				setCapturedShortcut(-1, 0);
+				finishCapture();
+				return true;
+			}
 			if (isModifierKey(event.key())) {
 				return true;
 			}
 
 			int modifiers = event.modifiers()
 					& (InputConstants.MOD_SHIFT | InputConstants.MOD_CONTROL | InputConstants.MOD_ALT);
-			switch (captureTarget) {
-				case OVERLAY -> {
-					editing.toggleKey = event.key();
-					editing.toggleModifiers = modifiers;
-				}
-				case MANUAL_ANNOUNCEMENT -> {
-					editing.manualAnnouncementKey = event.key();
-					editing.manualAnnouncementModifiers = modifiers;
-				}
-				case TECHNICAL -> {
-					editing.technicalToggleKey = event.key();
-					editing.technicalToggleModifiers = modifiers;
-				}
-			}
+			setCapturedShortcut(event.key(), modifiers);
 			finishCapture();
 			return true;
 		}
 		return super.keyPressed(event);
+	}
+
+	private void setCapturedShortcut(int key, int modifiers) {
+		switch (captureTarget) {
+				case OVERLAY -> {
+					editing.toggleKey = key;
+					editing.toggleModifiers = modifiers;
+				}
+				case MANUAL_ANNOUNCEMENT -> {
+					editing.manualAnnouncementKey = key;
+					editing.manualAnnouncementModifiers = modifiers;
+				}
+				case TECHNICAL -> {
+					editing.technicalToggleKey = key;
+					editing.technicalToggleModifiers = modifiers;
+				}
+				case FRAME_RATE -> {
+					editing.frameRateToggleKey = key;
+					editing.frameRateToggleModifiers = modifiers;
+				}
+			}
 	}
 
 	@Override
@@ -243,6 +259,9 @@ public final class ModInfoConfigScreen extends Screen {
 
 	private static Component shortcutMessage(String label, int key, int modifiers) {
 		StringBuilder text = new StringBuilder(label).append(": ");
+		if (key < 0) {
+			return Component.literal(text.append("Unbound").toString());
+		}
 		if ((modifiers & InputConstants.MOD_CONTROL) != 0) {
 			text.append("Ctrl+");
 		}
@@ -278,7 +297,8 @@ public final class ModInfoConfigScreen extends Screen {
 	private enum CaptureTarget {
 		OVERLAY,
 		MANUAL_ANNOUNCEMENT,
-		TECHNICAL
+		TECHNICAL,
+		FRAME_RATE
 	}
 
 	@FunctionalInterface
