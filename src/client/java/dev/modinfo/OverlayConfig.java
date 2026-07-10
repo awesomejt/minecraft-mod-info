@@ -1,0 +1,238 @@
+package dev.modinfo;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.fabricmc.loader.api.FabricLoader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+public final class OverlayConfig {
+	private static final Logger LOGGER = LoggerFactory.getLogger(ModInfoClient.MOD_ID);
+	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+	private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve("mod-info.json");
+
+	public boolean showCoordinates = true;
+	public boolean showBiome = true;
+	public boolean showDaysPlayed = true;
+	public boolean showFieldLabels = true;
+	public boolean showFacing = false;
+	public boolean facingOnCoordinatesLine = true;
+	public HeadingLabel headingLabel = HeadingLabel.FACING;
+	public boolean showClock = false;
+	public boolean clockShowDayNight = true;
+	public boolean clockShowWeather = true;
+	public boolean announceNewDay = true;
+	public boolean announceNewBiome = false;
+	public boolean biomeAnnouncementShowDimension = false;
+	public boolean biomeAnnouncementShowEntering = true;
+	public ManualAnnouncementContent manualAnnouncementContent = ManualAnnouncementContent.BOTH;
+	public int manualAnnouncementKey = InputConstants.KEY_N;
+	public int manualAnnouncementModifiers = InputConstants.MOD_CONTROL;
+	public boolean technicalShowLight = true;
+	public boolean technicalShowChunk = true;
+	public boolean technicalShowSlimeChunk = true;
+	public boolean technicalShowLabels = true;
+	public int technicalToggleKey = InputConstants.KEY_I;
+	public int technicalToggleModifiers = InputConstants.MOD_CONTROL;
+	public boolean showBackground = true;
+	public int backgroundOpacity = 56;
+	public int boxSize = 100;
+	public int fontSize = 100;
+	public TextAlignment textAlignment = TextAlignment.LEFT;
+	public int toggleKey = InputConstants.KEY_O;
+	public int toggleModifiers = 0;
+	public Position position = Position.TOP_LEFT;
+
+	public static OverlayConfig load() {
+		if (!Files.isRegularFile(CONFIG_PATH)) {
+			return new OverlayConfig();
+		}
+
+		try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
+			OverlayConfig loaded = GSON.fromJson(reader, OverlayConfig.class);
+			return loaded == null ? new OverlayConfig() : loaded.normalized();
+		} catch (Exception exception) {
+			LOGGER.warn("Could not read {}; using defaults", CONFIG_PATH, exception);
+			return new OverlayConfig();
+		}
+	}
+
+	public void save() {
+		normalized();
+		try {
+			Files.createDirectories(CONFIG_PATH.getParent());
+			try (Writer writer = Files.newBufferedWriter(CONFIG_PATH)) {
+				GSON.toJson(this, writer);
+			}
+		} catch (IOException exception) {
+			LOGGER.error("Could not save {}", CONFIG_PATH, exception);
+		}
+	}
+
+	public OverlayConfig copy() {
+		OverlayConfig copy = new OverlayConfig();
+		copy.showCoordinates = showCoordinates;
+		copy.showBiome = showBiome;
+		copy.showDaysPlayed = showDaysPlayed;
+		copy.showFieldLabels = showFieldLabels;
+		copy.showFacing = showFacing;
+		copy.facingOnCoordinatesLine = facingOnCoordinatesLine;
+		copy.headingLabel = headingLabel;
+		copy.showClock = showClock;
+		copy.clockShowDayNight = clockShowDayNight;
+		copy.clockShowWeather = clockShowWeather;
+		copy.announceNewDay = announceNewDay;
+		copy.announceNewBiome = announceNewBiome;
+		copy.biomeAnnouncementShowDimension = biomeAnnouncementShowDimension;
+		copy.biomeAnnouncementShowEntering = biomeAnnouncementShowEntering;
+		copy.manualAnnouncementContent = manualAnnouncementContent;
+		copy.manualAnnouncementKey = manualAnnouncementKey;
+		copy.manualAnnouncementModifiers = manualAnnouncementModifiers;
+		copy.technicalShowLight = technicalShowLight;
+		copy.technicalShowChunk = technicalShowChunk;
+		copy.technicalShowSlimeChunk = technicalShowSlimeChunk;
+		copy.technicalShowLabels = technicalShowLabels;
+		copy.technicalToggleKey = technicalToggleKey;
+		copy.technicalToggleModifiers = technicalToggleModifiers;
+		copy.showBackground = showBackground;
+		copy.backgroundOpacity = backgroundOpacity;
+		copy.boxSize = boxSize;
+		copy.fontSize = fontSize;
+		copy.textAlignment = textAlignment;
+		copy.toggleKey = toggleKey;
+		copy.toggleModifiers = toggleModifiers;
+		copy.position = position;
+		return copy;
+	}
+
+	private OverlayConfig normalized() {
+		backgroundOpacity = clamp(backgroundOpacity, 0, 100);
+		boxSize = clamp(boxSize, 50, 200);
+		fontSize = clamp(fontSize, 50, 200);
+		if (toggleKey < 0) {
+			toggleKey = InputConstants.KEY_O;
+		}
+		if (manualAnnouncementKey < 0) {
+			manualAnnouncementKey = InputConstants.KEY_N;
+		}
+		if (technicalToggleKey < 0) {
+			technicalToggleKey = InputConstants.KEY_I;
+		}
+		int allowedModifiers = InputConstants.MOD_SHIFT | InputConstants.MOD_CONTROL | InputConstants.MOD_ALT;
+		toggleModifiers &= allowedModifiers;
+		manualAnnouncementModifiers &= allowedModifiers;
+		technicalToggleModifiers &= allowedModifiers;
+		if (headingLabel == null) {
+			headingLabel = HeadingLabel.FACING;
+		}
+		if (manualAnnouncementContent == null) {
+			manualAnnouncementContent = ManualAnnouncementContent.BOTH;
+		}
+		if (position == null) {
+			position = Position.TOP_LEFT;
+		}
+		if (textAlignment == null) {
+			textAlignment = TextAlignment.LEFT;
+		}
+		return this;
+	}
+
+	private static int clamp(int value, int minimum, int maximum) {
+		return Math.max(minimum, Math.min(maximum, value));
+	}
+
+	public enum Position {
+		TOP_LEFT("Top left"),
+		TOP_CENTER("Top center"),
+		TOP_RIGHT("Top right"),
+		CENTER_LEFT("Center left"),
+		CENTER("Center"),
+		CENTER_RIGHT("Center right"),
+		BOTTOM_LEFT("Bottom left"),
+		BOTTOM_CENTER("Bottom center"),
+		BOTTOM_RIGHT("Bottom right");
+
+		private final String label;
+
+		Position(String label) {
+			this.label = label;
+		}
+
+		public String label() {
+			return label;
+		}
+
+		public Position next() {
+			Position[] positions = values();
+			return positions[(ordinal() + 1) % positions.length];
+		}
+	}
+
+	public enum HeadingLabel {
+		FACING("Facing"),
+		HEADING("Heading");
+
+		private final String label;
+
+		HeadingLabel(String label) {
+			this.label = label;
+		}
+
+		public String label() {
+			return label;
+		}
+
+		public HeadingLabel next() {
+			return this == FACING ? HEADING : FACING;
+		}
+	}
+
+	public enum TextAlignment {
+		LEFT("Left"),
+		CENTER("Center"),
+		RIGHT("Right");
+
+		private final String label;
+
+		TextAlignment(String label) {
+			this.label = label;
+		}
+
+		public String label() {
+			return label;
+		}
+
+		public TextAlignment next() {
+			TextAlignment[] alignments = values();
+			return alignments[(ordinal() + 1) % alignments.length];
+		}
+	}
+
+	public enum ManualAnnouncementContent {
+		DAY("Day"),
+		BIOME("Biome"),
+		BOTH("Day + biome");
+
+		private final String label;
+
+		ManualAnnouncementContent(String label) {
+			this.label = label;
+		}
+
+		public String label() {
+			return label;
+		}
+
+		public ManualAnnouncementContent next() {
+			ManualAnnouncementContent[] values = values();
+			return values[(ordinal() + 1) % values.length];
+		}
+	}
+}

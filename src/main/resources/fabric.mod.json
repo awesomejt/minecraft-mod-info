@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "mod-info",
+  "version": "${version}",
+  "name": "Mod Info Overlay",
+  "description": "A configurable navigation, world-info, and announcement overlay.",
+  "authors": [
+    "Mod Info contributors"
+  ],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.modinfo.ModInfoClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~26.2",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
