@@ -1,4 +1,4 @@
-package dev.modinfo;
+package media.jlt.minecraft.mods.info;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;

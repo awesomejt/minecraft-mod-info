@@ -1,4 +1,4 @@
-package dev.modinfo;
+package media.jlt.minecraft.mods.info;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.api.ClientModInitializer;

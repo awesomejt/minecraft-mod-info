@@ -96,7 +96,7 @@ The output must report Java 25. From this project directory, run:
 The first build downloads Gradle, Minecraft development files, Fabric Loader, and Fabric API, so it requires an internet connection. The distributable file is:
 
 ```text
-build/libs/mod-info-1.6.0.jar
+build/libs/mod-info-1.6.1.jar
 ```
 
 Do not install the `-sources.jar`; that archive is for IDE source browsing.
@@ -148,7 +148,7 @@ This uses the project-local `run/` game directory, not your normal Minecraft sav
 2. In Prism, click **Add Instance**.
 3. Select Minecraft **26.2**, choose **Fabric** in the mod-loader list, select the starred/latest stable compatible loader, and create the instance.
 4. Select the instance, click **Edit → Mods**.
-5. Click **Add File** and select `build/libs/mod-info-1.6.0.jar`.
+5. Click **Add File** and select `build/libs/mod-info-1.6.1.jar`.
 6. Add the matching **Fabric API** JAR as well. Prism's **Download Mods** button can find it; filter for Minecraft 26.2 and Fabric.
 7. In **Edit → Settings → Java**, use a Java 25 runtime if Prism did not select one automatically.
 8. Launch the instance and run the test checklist above.
@@ -157,11 +157,11 @@ Keeping this in a separate Prism instance is the safest way to prevent version o
 
 ## Install with the official Minecraft Launcher
 
-1. Build `build/libs/mod-info-1.6.0.jar`.
+1. Build `build/libs/mod-info-1.6.1.jar`.
 2. Download the Fabric Installer from Fabric's official [Minecraft Launcher installer page](https://fabricmc.net/use/installer/).
 3. Close Minecraft and the launcher, run the installer, choose **Minecraft 26.2**, keep the latest compatible loader selected, ensure **Create Profile** is checked, and install the client profile.
 4. Download **Fabric API 0.154.2+26.2** (or a newer compatible 26.2 build) from [Modrinth](https://modrinth.com/mod/fabric-api) or [CurseForge](https://www.curseforge.com/minecraft/mc-mods/fabric-api).
-5. Put both `mod-info-1.6.0.jar` and the Fabric API JAR in the game directory's `mods` folder. Remove any older `mod-info` JAR first, then create the game directory's `mods` folder if it does not exist:
+5. Put both `mod-info-1.6.1.jar` and the Fabric API JAR in the game directory's `mods` folder. Remove any older `mod-info` JAR first, then create the game directory's `mods` folder if it does not exist:
 
    - Windows: `%APPDATA%\.minecraft\mods`
    - macOS: `~/Library/Application Support/minecraft/mods`
@@ -175,7 +175,7 @@ For isolation similar to Prism, edit the Fabric installation in the official lau
 
 - **“Unsupported class file” or Java error while building:** `JAVA_HOME` or `java` points to something older than JDK 25.
 - **Fabric says a dependency is missing:** install Fabric API for Minecraft 26.2 in the same `mods` folder.
-- **The mod is not listed:** confirm the launcher profile is Fabric 26.2 and that you installed `mod-info-1.6.0.jar`, not the sources JAR.
+- **The mod is not listed:** confirm the launcher profile is Fabric 26.2 and that you installed `mod-info-1.6.1.jar`, not the sources JAR.
 - **Minecraft reports an incompatible mod set:** remove mods built for other Minecraft versions; a separate launcher instance/game directory is easiest.
 - **The overlay is absent:** enter a world, press **F1** once, then check the information toggles and toggle key under **Options → Mod Info Settings…**.
 - **Settings need to be completely cleared:** close Minecraft and delete `config/mod-info.json`; defaults are recreated on the next launch.
@@ -184,6 +184,8 @@ For isolation similar to Prism, edit the Fabric installation in the official lau
 ## How it works
 
 Fabric Loader reads `fabric.mod.json` and invokes `ModInfoClient` through the client entrypoint. The client loads `config/mod-info.json`, polls configured modifier-aware shortcuts only while normal gameplay has focus, and adds its native paged settings screen to Minecraft's Options screen through Fabric Screen API. A HUD element attached before the vanilla chat layer reads the local player position, heading, biome registry key, lighting, weather, and synchronized world time, then draws the selected lines with the configured scale, background, and screen anchor. The same client tick observes day and biome transitions and feeds a timed announcement queue rendered in that HUD layer. Single-player slime checks use the integrated server's world seed; no server packets, mixins, Cloth Config, or Mod Menu dependency is required.
+
+Java sources use the domain-owned base package `media.jlt.minecraft.mods.info`, and the Gradle Maven group matches it. The Fabric mod ID and resource namespace remain `mod-info`.
 
 Useful upstream documentation:
 
