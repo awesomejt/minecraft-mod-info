@@ -13,6 +13,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.client.gui.screens.options.OptionsScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -150,7 +152,7 @@ public final class ModInfoClient implements ClientModInitializer {
 		}
 		if (config.showDaysPlayed) {
 			long day = Math.floorDiv(minecraft.level.getOverworldClockTime(), 24_000L) + 1L;
-			lines.add(config.showFieldLabels ? "Days played: " + day : Long.toString(day));
+			lines.add(config.showFieldLabels ? "Days played: " + day : day + " Days");
 		}
 		if (config.showClock) {
 			lines.add(formatClock(minecraft));
@@ -480,12 +482,36 @@ public final class ModInfoClient implements ClientModInitializer {
 	}
 
 	private static String slimeChunkStatus(Minecraft minecraft, int chunkX, int chunkZ) {
-		if (minecraft.getSingleplayerServer() == null) {
+		Long seed = worldSeed(minecraft);
+		if (seed == null) {
 			return "Unavailable (server seed unknown)";
 		}
-		long seed = minecraft.getSingleplayerServer().getWorldGenSettings().options().seed();
 		boolean slimeChunk = WorldgenRandom.seedSlimeChunk(chunkX, chunkZ, seed, 987234911L).nextInt(10) == 0;
 		return slimeChunk ? "Yes" : "No";
+	}
+
+	private static Long worldSeed(Minecraft minecraft) {
+		if (minecraft.getSingleplayerServer() != null) {
+			return minecraft.getSingleplayerServer().getWorldGenSettings().options().seed();
+		}
+		String serverKey = currentServerKey(minecraft);
+		return serverKey == null ? null : config.activeServerSeed(serverKey);
+	}
+
+	static String currentServerKey(Minecraft minecraft) {
+		ServerData server = minecraft.getCurrentServer();
+		if (server == null || server.ip == null || server.ip.isBlank()) {
+			return null;
+		}
+		ServerAddress address = ServerAddress.parseString(server.ip);
+		String host = address.getHost().toLowerCase(Locale.ROOT);
+		while (host.endsWith(".")) {
+			host = host.substring(0, host.length() - 1);
+		}
+		if (host.contains(":") && !host.startsWith("[")) {
+			host = "[" + host + "]";
+		}
+		return host + ":" + address.getPort();
 	}
 
 	private static int findFreeSettingsButtonY(List<AbstractWidget> widgets, int screenHeight) {

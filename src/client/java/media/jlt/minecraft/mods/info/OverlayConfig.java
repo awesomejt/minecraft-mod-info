@@ -14,6 +14,10 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 public final class OverlayConfig {
 	private static final Logger LOGGER = LoggerFactory.getLogger(ModInfoClient.MOD_ID);
@@ -41,12 +45,13 @@ public final class OverlayConfig {
 	public int manualAnnouncementModifiers = InputConstants.MOD_CONTROL;
 	public boolean technicalShowLight = true;
 	public boolean technicalShowChunk = true;
-	public boolean technicalShowSlimeChunk = true;
+	public boolean technicalShowSlimeChunk = false;
 	public boolean technicalShowLabels = true;
 	public int technicalToggleKey = InputConstants.KEY_I;
 	public int technicalToggleModifiers = InputConstants.MOD_CONTROL;
 	public int frameRateToggleKey = -1;
 	public int frameRateToggleModifiers = 0;
+	public Map<String, ServerSeedProfiles> serverSeedOverrides = new LinkedHashMap<>();
 	public boolean showBackground = true;
 	public int backgroundOpacity = 56;
 	public int boxSize = 100;
@@ -126,6 +131,9 @@ public final class OverlayConfig {
 		copy.technicalToggleModifiers = technicalToggleModifiers;
 		copy.frameRateToggleKey = frameRateToggleKey;
 		copy.frameRateToggleModifiers = frameRateToggleModifiers;
+		for (Map.Entry<String, ServerSeedProfiles> entry : serverSeedOverrides.entrySet()) {
+			copy.serverSeedOverrides.put(entry.getKey(), entry.getValue().copy());
+		}
 		copy.showBackground = showBackground;
 		copy.backgroundOpacity = backgroundOpacity;
 		copy.boxSize = boxSize;
@@ -159,6 +167,12 @@ public final class OverlayConfig {
 		manualAnnouncementModifiers &= allowedModifiers;
 		technicalToggleModifiers &= allowedModifiers;
 		frameRateToggleModifiers &= allowedModifiers;
+		if (serverSeedOverrides == null) {
+			serverSeedOverrides = new LinkedHashMap<>();
+		} else {
+			serverSeedOverrides.entrySet().removeIf(entry -> entry.getKey() == null || entry.getValue() == null);
+			serverSeedOverrides.values().forEach(ServerSeedProfiles::normalize);
+		}
 		if (headingLabel == null) {
 			headingLabel = HeadingLabel.FACING;
 		}
@@ -176,6 +190,71 @@ public final class OverlayConfig {
 
 	private static int clamp(int value, int minimum, int maximum) {
 		return Math.max(minimum, Math.min(maximum, value));
+	}
+
+	Long activeServerSeed(String serverKey) {
+		ServerSeedProfiles server = serverSeedOverrides.get(serverKey);
+		return server == null ? null : server.activeSeed();
+	}
+
+	String activeServerSeedProfile(String serverKey) {
+		ServerSeedProfiles server = serverSeedOverrides.get(serverKey);
+		return server == null || server.activeProfile == null ? "None" : server.activeProfile;
+	}
+
+	void putServerSeed(String serverKey, String profileName, long seed) {
+		ServerSeedProfiles server = serverSeedOverrides.computeIfAbsent(serverKey,
+				ignored -> new ServerSeedProfiles());
+		server.profiles.put(profileName, seed);
+		server.activeProfile = profileName;
+	}
+
+	void clearActiveServerSeed(String serverKey) {
+		ServerSeedProfiles server = serverSeedOverrides.get(serverKey);
+		if (server == null || server.activeProfile == null) {
+			return;
+		}
+		server.profiles.remove(server.activeProfile);
+		server.activeProfile = server.profiles.keySet().stream().findFirst().orElse(null);
+		if (server.profiles.isEmpty()) {
+			serverSeedOverrides.remove(serverKey);
+		}
+	}
+
+	void cycleServerSeedProfile(String serverKey) {
+		ServerSeedProfiles server = serverSeedOverrides.get(serverKey);
+		if (server == null || server.profiles.size() < 2) {
+			return;
+		}
+		List<String> names = new ArrayList<>(server.profiles.keySet());
+		int current = names.indexOf(server.activeProfile);
+		server.activeProfile = names.get((current + 1) % names.size());
+	}
+
+	public static final class ServerSeedProfiles {
+		public String activeProfile;
+		public Map<String, Long> profiles = new LinkedHashMap<>();
+
+		private Long activeSeed() {
+			return activeProfile == null ? null : profiles.get(activeProfile);
+		}
+
+		private ServerSeedProfiles copy() {
+			ServerSeedProfiles copy = new ServerSeedProfiles();
+			copy.activeProfile = activeProfile;
+			copy.profiles.putAll(profiles);
+			return copy;
+		}
+
+		private void normalize() {
+			if (profiles == null) {
+				profiles = new LinkedHashMap<>();
+			}
+			profiles.entrySet().removeIf(entry -> entry.getKey() == null || entry.getValue() == null);
+			if (activeProfile == null || !profiles.containsKey(activeProfile)) {
+				activeProfile = profiles.keySet().stream().findFirst().orElse(null);
+			}
+		}
 	}
 
 	public enum Position {

@@ -39,7 +39,7 @@ Shortcuts are intentionally managed on this screen rather than added to Minecraf
 
 Minecraft 26.2 assigns **O** to its Friends List. Version 1.6.2 migrates the mod's former default O binding to Unbound; customized bindings remain configurable on the Appearance page.
 
-Facing and the clock are disabled by default to preserve the original compact layout. The technical fields are selected by default but remain hidden until their shortcut is pressed.
+Facing and the clock are disabled by default to preserve the original compact layout. Technical light and chunk-position fields are selected by default but remain hidden until their shortcut is pressed. Slime-chunk status is disabled by default because accurate results are only available when the world seed is known, normally in single-player.
 
 ## Technical information
 
@@ -52,6 +52,34 @@ Facing and the clock are disabled by default to preserve the original compact la
 Slime-chunk calculation requires the world seed. The integrated single-player server exposes it, but a normal multiplayer server does not; multiplayer therefore displays `Unavailable (server seed unknown)` rather than guessing.
 
 Technical labels are independent of the general information labels. With technical labels enabled, slime status is `Slime chunk: Yes/No`; with labels disabled it becomes the self-explanatory `Slimes/No Slimes`.
+
+### Multiplayer seed overrides
+
+While connected to a multiplayer server, open **Technical → Set current server seed…** to provide a signed 64-bit numeric world seed. Overrides are stored under a normalized `host:port` key and support multiple named profiles for servers that reset or rotate worlds. Click **Seed profile** to cycle the active profile, then click the main settings screen's **Done** button to save.
+
+Example configuration:
+
+```json
+"serverSeedOverrides": {
+  "play.example.com:25565": {
+    "activeProfile": "season-4",
+    "profiles": {
+      "season-3": 123456789,
+      "season-4": -987654321
+    }
+  }
+}
+```
+
+Limitations and safety notes:
+
+- Vanilla clients are not normally told a multiplayer world's seed; the override must be exact.
+- A wrong seed produces plausible-looking but incorrect slime-chunk results.
+- Server-list names and resolved IPs are not used as identity; the entered host/IP and effective port are normalized instead.
+- Proxy networks, rotating worlds, and multiworld servers may require separate named profiles or manual profile changes.
+- Server mods can alter slime spawning or the slime-chunk algorithm.
+- Some public servers prohibit seed-based tools. Follow the server's rules even when the seed is known.
+- Overrides are stored as plain text in `config/mod-info.json`, not encrypted secret storage.
 
 Frame rate has its own shortcut and visibility state; it is not affected by the `Ctrl+I` technical group. It records individual frame times in a fixed-size ten-second rolling window and refreshes the average FPS and 99th-percentile frame-time result once per second. Average FPS is calculated as sampled frames divided by total sampled frame time, rather than averaging individual FPS readings.
 
@@ -103,7 +131,7 @@ The output must report Java 25. From this project directory, run:
 The first build downloads Gradle, Minecraft development files, Fabric Loader, and Fabric API, so it requires an internet connection. The distributable file is:
 
 ```text
-build/libs/mod-info-1.9.0.jar
+build/libs/mod-info-1.10.0.jar
 ```
 
 Do not install the `-sources.jar`; that archive is for IDE source browsing.
@@ -131,7 +159,7 @@ This uses the project-local `run/` game directory, not your normal Minecraft sav
 5. The overlay toggle starts Unbound; binding it on the Appearance page hides and restores the overlay without colliding with Friends List.
 6. **Options → Mod Info Settings…** opens the settings screen.
 7. Each information toggle works, including all three being disabled.
-8. Disabling **Field labels** removes `XYZ:`, `Biome:`, and `Days played:` while retaining their values.
+8. Disabling **Field labels** removes `XYZ:`, `Biome:`, and `Days played:` while retaining context such as `42 Days`.
 9. Background Off and 0% opacity both remove the rectangle while leaving text visible.
 10. Box size, font size, all nine positions, and key capture work.
 11. Left, Center, and Right alignment position every row correctly within the widest-row box width.
@@ -140,13 +168,15 @@ This uses the project-local `run/` game directory, not your normal Minecraft sav
 14. **Ctrl+I** toggles only the selected technical fields; chunk/local coordinates update correctly across a chunk boundary.
 15. General and technical label toggles operate independently.
 16. Single-player slime status is `Slime chunk: Yes/No` with technical labels and `Slimes/No Slimes` without them; multiplayer reports that the seed is unavailable.
-17. Binding **Frame-rate toggle** shows and hides only the FPS row; it defaults to Unbound, begins in `Sampling…`, and produces a ten-second average plus 1% low after sufficient data.
-18. With day announcements enabled, `/time add 24000` shows a centered `Day N` message that fades in and out.
-19. With biome announcements enabled, crossing a biome boundary shows the configured dimension/wording format once.
-20. **Ctrl+N** queues the configured manual announcement content.
-21. Turning either automatic announcement setting off suppresses that transition type.
-22. **Cancel** discards edits; **Done** persists them after restarting Minecraft.
-23. **F1** hides the overlay and announcements with the rest of the HUD.
+17. On multiplayer, set a signed numeric seed under Technical, enable slime chunks, and verify the selected server profile produces expected results.
+18. Add a second seed profile, cycle the active profile, save, and confirm it persists after restarting.
+19. Binding **Frame-rate toggle** shows and hides only the FPS row; it defaults to Unbound, begins in `Sampling…`, and produces a ten-second average plus 1% low after sufficient data.
+20. With day announcements enabled, `/time add 24000` shows a centered `Day N` message that fades in and out.
+21. With biome announcements enabled, crossing a biome boundary shows the configured dimension/wording format once.
+22. **Ctrl+N** queues the configured manual announcement content.
+23. Turning either automatic announcement setting off suppresses that transition type.
+24. **Cancel** discards edits; **Done** persists them after restarting Minecraft.
+25. **F1** hides the overlay and announcements with the rest of the HUD.
 
 “Days played” is Minecraft's current Overworld day count: `floor(overworldClockTime / 24000) + 1`. The first in-game day is therefore displayed as 1. Because it follows world time, commands that set the time can change the number; it is not the player's real-world session duration.
 
@@ -156,7 +186,7 @@ This uses the project-local `run/` game directory, not your normal Minecraft sav
 2. In Prism, click **Add Instance**.
 3. Select Minecraft **26.2**, choose **Fabric** in the mod-loader list, select the starred/latest stable compatible loader, and create the instance.
 4. Select the instance, click **Edit → Mods**.
-5. Click **Add File** and select `build/libs/mod-info-1.9.0.jar`.
+5. Click **Add File** and select `build/libs/mod-info-1.10.0.jar`.
 6. Add the matching **Fabric API** JAR as well. Prism's **Download Mods** button can find it; filter for Minecraft 26.2 and Fabric.
 7. In **Edit → Settings → Java**, use a Java 25 runtime if Prism did not select one automatically.
 8. Launch the instance and run the test checklist above.
@@ -165,11 +195,11 @@ Keeping this in a separate Prism instance is the safest way to prevent version o
 
 ## Install with the official Minecraft Launcher
 
-1. Build `build/libs/mod-info-1.9.0.jar`.
+1. Build `build/libs/mod-info-1.10.0.jar`.
 2. Download the Fabric Installer from Fabric's official [Minecraft Launcher installer page](https://fabricmc.net/use/installer/).
 3. Close Minecraft and the launcher, run the installer, choose **Minecraft 26.2**, keep the latest compatible loader selected, ensure **Create Profile** is checked, and install the client profile.
 4. Download **Fabric API 0.154.2+26.2** (or a newer compatible 26.2 build) from [Modrinth](https://modrinth.com/mod/fabric-api) or [CurseForge](https://www.curseforge.com/minecraft/mc-mods/fabric-api).
-5. Put both `mod-info-1.9.0.jar` and the Fabric API JAR in the game directory's `mods` folder. Remove any older `mod-info` JAR first, then create the game directory's `mods` folder if it does not exist:
+5. Put both `mod-info-1.10.0.jar` and the Fabric API JAR in the game directory's `mods` folder. Remove any older `mod-info` JAR first, then create the game directory's `mods` folder if it does not exist:
 
    - Windows: `%APPDATA%\.minecraft\mods`
    - macOS: `~/Library/Application Support/minecraft/mods`
@@ -183,7 +213,7 @@ For isolation similar to Prism, edit the Fabric installation in the official lau
 
 - **“Unsupported class file” or Java error while building:** `JAVA_HOME` or `java` points to something older than JDK 25.
 - **Fabric says a dependency is missing:** install Fabric API for Minecraft 26.2 in the same `mods` folder.
-- **The mod is not listed:** confirm the launcher profile is Fabric 26.2 and that you installed `mod-info-1.9.0.jar`, not the sources JAR.
+- **The mod is not listed:** confirm the launcher profile is Fabric 26.2 and that you installed `mod-info-1.10.0.jar`, not the sources JAR.
 - **Minecraft reports an incompatible mod set:** remove mods built for other Minecraft versions; a separate launcher instance/game directory is easiest.
 - **The overlay is absent:** enter a world, press **F1** once, then check the information toggles and toggle key under **Options → Mod Info Settings…**.
 - **Settings need to be completely cleared:** close Minecraft and delete `config/mod-info.json`; defaults are recreated on the next launch.

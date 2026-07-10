@@ -145,6 +145,28 @@ public final class ModInfoConfigScreen extends Screen {
 		addShortcutButton(right, row(1), "Frame-rate toggle", CaptureTarget.FRAME_RATE,
 				() -> shortcutMessage("Frame-rate toggle", editing.frameRateToggleKey,
 						editing.frameRateToggleModifiers));
+
+		if (minecraft.getSingleplayerServer() != null) {
+			Button automatic = Button.builder(Component.literal("Seed: Single-player automatic"), button -> {})
+					.bounds(right, row(2), BUTTON_WIDTH, BUTTON_HEIGHT).build();
+			automatic.active = false;
+			addRenderableWidget(automatic);
+		} else {
+			String serverKey = ModInfoClient.currentServerKey(minecraft);
+			if (serverKey == null) {
+				Button unavailable = Button.builder(Component.literal("Seed: No active server"), button -> {})
+						.bounds(right, row(2), BUTTON_WIDTH, BUTTON_HEIGHT).build();
+				unavailable.active = false;
+				addRenderableWidget(unavailable);
+			} else {
+				addCycleButton(right, row(2),
+						() -> "Seed profile: " + editing.activeServerSeedProfile(serverKey),
+						() -> editing.cycleServerSeedProfile(serverKey));
+				addRenderableWidget(Button.builder(Component.literal("Set current server seed…"),
+						button -> minecraft.gui.setScreen(new ServerSeedScreen(this, editing, serverKey)))
+						.bounds(right, row(3), BUTTON_WIDTH, BUTTON_HEIGHT).build());
+			}
+		}
 	}
 
 	private void addBooleanButton(int x, int y, String label, BooleanGetter getter, BooleanSetter setter) {
