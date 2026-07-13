@@ -1,19 +1,30 @@
 package media.jlt.minecraft.mods.info;
 
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.DumperOptions;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.TypeDescription;
+import org.yaml.snakeyaml.constructor.Constructor;
+import org.yaml.snakeyaml.introspector.BeanAccess;
+import org.yaml.snakeyaml.introspector.PropertyUtils;
+import org.yaml.snakeyaml.nodes.Tag;
+import org.yaml.snakeyaml.representer.Representer;
+import org.yaml.snakeyaml.LoaderOptions;
 
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,8 +32,11 @@ import java.util.Map;
 
 public final class OverlayConfig {
 	private static final Logger LOGGER = LoggerFactory.getLogger(ModInfoClient.MOD_ID);
-	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-	private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve("mod-info.json");
+	private static final Gson LEGACY_JSON_GSON = new Gson();
+	private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve("mod-info.yaml");
+	private static final Path LEGACY_JSON_CONFIG_PATH =
+			FabricLoader.getInstance().getConfigDir().resolve("mod-info.json");
+	private static final Yaml YAML = createYaml();
 	private static final int CURRENT_CONFIG_VERSION = 2;
 
 	public int configVersion = CURRENT_CONFIG_VERSION;
@@ -62,31 +76,55 @@ public final class OverlayConfig {
 	public Position position = Position.TOP_LEFT;
 
 	public static OverlayConfig load() {
-		if (!Files.isRegularFile(CONFIG_PATH)) {
-			return new OverlayConfig();
+		if (Files.isRegularFile(CONFIG_PATH)) {
+			try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
+				OverlayConfig loaded = (OverlayConfig) YAML.load(reader);
+				if (loaded == null) {
+					return new OverlayConfig();
+				}
+				loaded.configVersion = CURRENT_CONFIG_VERSION;
+				loaded.normalized();
+				return loaded;
+			} catch (Exception exception) {
+				LOGGER.warn("Could not read {}; using defaults", CONFIG_PATH, exception);
+				return new OverlayConfig();
+			}
 		}
 
+		if (Files.isRegularFile(LEGACY_JSON_CONFIG_PATH)) {
+			return migrateLegacyJson();
+		}
+
+		return new OverlayConfig();
+	}
+
+	private static OverlayConfig migrateLegacyJson() {
 		try {
 			JsonObject json;
-			try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
+			try (Reader reader = Files.newBufferedReader(LEGACY_JSON_CONFIG_PATH)) {
 				json = JsonParser.parseReader(reader).getAsJsonObject();
 			}
-			boolean legacyConfig = !json.has("configVersion");
-			OverlayConfig loaded = GSON.fromJson(json, OverlayConfig.class);
+			boolean legacyVersion = !json.has("configVersion");
+			OverlayConfig loaded = LEGACY_JSON_GSON.fromJson(json, OverlayConfig.class);
 			if (loaded == null) {
 				return new OverlayConfig();
 			}
-			if (legacyConfig && loaded.toggleKey == InputConstants.KEY_O && loaded.toggleModifiers == 0) {
+			if (legacyVersion && loaded.toggleKey == InputConstants.KEY_O && loaded.toggleModifiers == 0) {
 				loaded.toggleKey = -1;
 			}
 			loaded.configVersion = CURRENT_CONFIG_VERSION;
 			loaded.normalized();
-			if (legacyConfig) {
-				loaded.save();
+			loaded.save();
+			if (Files.isRegularFile(CONFIG_PATH)) {
+				Files.move(LEGACY_JSON_CONFIG_PATH,
+						LEGACY_JSON_CONFIG_PATH.resolveSibling("mod-info.json.bak"),
+						StandardCopyOption.REPLACE_EXISTING);
+				LOGGER.info("Migrated {} to {}; old file kept as mod-info.json.bak",
+						LEGACY_JSON_CONFIG_PATH, CONFIG_PATH);
 			}
 			return loaded;
 		} catch (Exception exception) {
-			LOGGER.warn("Could not read {}; using defaults", CONFIG_PATH, exception);
+			LOGGER.warn("Could not read {}; using defaults", LEGACY_JSON_CONFIG_PATH, exception);
 			return new OverlayConfig();
 		}
 	}
@@ -96,11 +134,67 @@ public final class OverlayConfig {
 		try {
 			Files.createDirectories(CONFIG_PATH.getParent());
 			try (Writer writer = Files.newBufferedWriter(CONFIG_PATH)) {
-				GSON.toJson(this, writer);
+				YAML.dump(toOrderedRepresentation(this), writer);
 			}
 		} catch (IOException exception) {
 			LOGGER.error("Could not save {}", CONFIG_PATH, exception);
 		}
+	}
+
+	private static Yaml createYaml() {
+		LoaderOptions loaderOptions = new LoaderOptions();
+		Constructor constructor = new Constructor(OverlayConfig.class, loaderOptions);
+		PropertyUtils propertyUtils = new PropertyUtils();
+		propertyUtils.setBeanAccess(BeanAccess.FIELD);
+		propertyUtils.setSkipMissingProperties(true);
+		constructor.setPropertyUtils(propertyUtils);
+
+		TypeDescription configDescription = new TypeDescription(OverlayConfig.class);
+		configDescription.addPropertyParameters("serverSeedOverrides", String.class, ServerSeedProfiles.class);
+		constructor.addTypeDescription(configDescription);
+		TypeDescription profilesDescription = new TypeDescription(ServerSeedProfiles.class);
+		profilesDescription.addPropertyParameters("profiles", String.class, Long.class);
+		constructor.addTypeDescription(profilesDescription);
+
+		DumperOptions dumperOptions = new DumperOptions();
+		dumperOptions.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+		dumperOptions.setIndent(2);
+		Representer representer = new Representer(dumperOptions);
+		representer.addClassTag(Position.class, Tag.STR);
+		representer.addClassTag(HeadingLabel.class, Tag.STR);
+		representer.addClassTag(TextAlignment.class, Tag.STR);
+		representer.addClassTag(ManualAnnouncementContent.class, Tag.STR);
+
+		return new Yaml(constructor, representer, dumperOptions);
+	}
+
+	/**
+	 * Converts a bean graph into LinkedHashMaps ordered by field declaration, since SnakeYAML's
+	 * bean representer does not preserve declaration order on its own.
+	 */
+	private static Object toOrderedRepresentation(Object value) {
+		if (value == null || value instanceof Number || value instanceof String
+				|| value instanceof Boolean || value instanceof Enum) {
+			return value;
+		}
+		if (value instanceof Map<?, ?> map) {
+			Map<Object, Object> ordered = new LinkedHashMap<>();
+			map.forEach((key, entryValue) -> ordered.put(key, toOrderedRepresentation(entryValue)));
+			return ordered;
+		}
+		Map<String, Object> ordered = new LinkedHashMap<>();
+		for (Field field : value.getClass().getDeclaredFields()) {
+			if (Modifier.isStatic(field.getModifiers())) {
+				continue;
+			}
+			try {
+				field.setAccessible(true);
+				ordered.put(field.getName(), toOrderedRepresentation(field.get(value)));
+			} catch (IllegalAccessException exception) {
+				throw new IllegalStateException("Could not read field " + field.getName(), exception);
+			}
+		}
+		return ordered;
 	}
 
 	public OverlayConfig copy() {

@@ -12,7 +12,7 @@ The overlay is visible by default. Its toggle shortcut is intentionally unbound;
 
 ## Settings
 
-Open **Options → Mod Info Settings…**. The button appears in the upper-left of Minecraft's normal Options screen. Settings are saved when you click **Done** and persist separately for each launcher instance in `config/mod-info.json`.
+Open **Options → Mod Info Settings…**. The button appears in the upper-left of Minecraft's normal Options screen. Settings are saved when you click **Done** and persist separately for each launcher instance in `config/mod-info.yaml`. Existing `config/mod-info.json` files from older versions are migrated automatically on first launch and kept as `mod-info.json.bak`.
 
 The screen is divided into **Info**, **Appearance**, **Announce**, and **Technical** pages. It provides:
 
@@ -79,7 +79,7 @@ Limitations and safety notes:
 - Proxy networks, rotating worlds, and multiworld servers may require separate named profiles or manual profile changes.
 - Server mods can alter slime spawning or the slime-chunk algorithm.
 - Some public servers prohibit seed-based tools. Follow the server's rules even when the seed is known.
-- Overrides are stored as plain text in `config/mod-info.json`, not encrypted secret storage.
+- Overrides are stored as plain text in `config/mod-info.yaml`, not encrypted secret storage.
 
 Frame rate has its own shortcut and visibility state; it is not affected by the `Ctrl+I` technical group. It records individual frame times in a fixed-size ten-second rolling window and refreshes the average FPS and 99th-percentile frame-time result once per second. Average FPS is calculated as sampled frames divided by total sampled frame time, rather than averaging individual FPS readings.
 
@@ -216,12 +216,12 @@ For isolation similar to Prism, edit the Fabric installation in the official lau
 - **The mod is not listed:** confirm the launcher profile is Fabric 26.2 and that you installed `mod-info-1.10.0.jar`, not the sources JAR.
 - **Minecraft reports an incompatible mod set:** remove mods built for other Minecraft versions; a separate launcher instance/game directory is easiest.
 - **The overlay is absent:** enter a world, press **F1** once, then check the information toggles and toggle key under **Options → Mod Info Settings…**.
-- **Settings need to be completely cleared:** close Minecraft and delete `config/mod-info.json`; defaults are recreated on the next launch.
+- **Settings need to be completely cleared:** close Minecraft and delete `config/mod-info.yaml`; defaults are recreated on the next launch.
 - **Need logs:** inspect `logs/latest.log` inside the selected game/instance directory. Prism also shows the log in its console window.
 
 ## How it works
 
-Fabric Loader reads `fabric.mod.json` and invokes `ModInfoClient` through the client entrypoint. The client loads `config/mod-info.json`, polls configured modifier-aware shortcuts only while normal gameplay has focus, and adds its native paged settings screen to Minecraft's Options screen through Fabric Screen API. A HUD element attached before the vanilla chat layer reads the local player position, heading, biome registry key, lighting, weather, and synchronized world time, then draws the selected lines with the configured scale, background, and screen anchor. The same client tick observes day and biome transitions and feeds a timed announcement queue rendered in that HUD layer. Single-player slime checks use the integrated server's world seed; no server packets, mixins, Cloth Config, or Mod Menu dependency is required.
+Fabric Loader reads `fabric.mod.json` and invokes `ModInfoClient` through the client entrypoint. The client loads `config/mod-info.yaml` (migrating a legacy `config/mod-info.json` on first launch if present), polls configured modifier-aware shortcuts only while normal gameplay has focus, and adds its native paged settings screen to Minecraft's Options screen through Fabric Screen API. A HUD element attached before the vanilla chat layer reads the local player position, heading, biome registry key, lighting, weather, and synchronized world time, then draws the selected lines with the configured scale, background, and screen anchor. The same client tick observes day and biome transitions and feeds a timed announcement queue rendered in that HUD layer. Single-player slime checks use the integrated server's world seed; no server packets, mixins, Cloth Config, or Mod Menu dependency is required.
 
 Java sources use the domain-owned base package `media.jlt.minecraft.mods.info`, and the Gradle Maven group matches it. The Fabric mod ID and resource namespace remain `mod-info`.
 
