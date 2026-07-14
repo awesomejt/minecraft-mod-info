@@ -1,0 +1,54 @@
+configVersion: 3
+info:
+  navigation:
+    coordinates: true
+    facing:
+      show: false
+      label: FACING
+      onCoordinatesLine: true
+    biome: true
+  duration:
+    days: true
+    clock:
+      show: false
+      showDayNight: true
+      showWeather: true
+  appearance:
+    background:
+      show: false
+      opacity: 56
+    box:
+      size: 100
+      fontSize: 100
+      textAlignment: LEFT
+      position: TOP_LEFT
+      fieldLabels: true
+      technicalLabels: true
+  technical:
+    light: true
+    chunk: true
+    slimeChunk: false
+announcements:
+  biome:
+    announce:
+      enabled: false
+      dimension: false
+      entering: false
+  day:
+    announce:
+      enabled: true
+  manualContent: DAY
+bindings:
+  info:
+    key: 48
+    modifiers: 0
+  technical:
+    key: 48
+    modifiers: 2
+  frameRate:
+    key: -1
+    modifiers: 0
+  announcements:
+    key: 78
+    modifiers: 0
+serverSeeds: {}

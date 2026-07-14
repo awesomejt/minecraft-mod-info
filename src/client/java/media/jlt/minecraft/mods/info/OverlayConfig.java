@@ -37,7 +37,7 @@ public final class OverlayConfig {
 	private static final Path LEGACY_JSON_CONFIG_PATH =
 			FabricLoader.getInstance().getConfigDir().resolve("mod-info.json");
 	private static final Yaml YAML = createYaml();
-	private static final int CURRENT_CONFIG_VERSION = 2;
+	private static final int CURRENT_CONFIG_VERSION = 3;
 
 	public int configVersion = CURRENT_CONFIG_VERSION;
 	public boolean showCoordinates = true;
@@ -77,15 +77,25 @@ public final class OverlayConfig {
 
 	public static OverlayConfig load() {
 		if (Files.isRegularFile(CONFIG_PATH)) {
-			try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
-				PersistedConfig persisted = (PersistedConfig) YAML.load(reader);
-				if (persisted == null) {
-					return new OverlayConfig();
+			try {
+				PersistedConfig persisted;
+				try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
+					persisted = (PersistedConfig) YAML.load(reader);
 				}
-				OverlayConfig loaded = fromPersisted(persisted);
-				loaded.configVersion = CURRENT_CONFIG_VERSION;
-				loaded.normalized();
-				return loaded;
+				if (persisted != null && persisted.configVersion >= CURRENT_CONFIG_VERSION) {
+					OverlayConfig loaded = fromPersisted(persisted);
+					loaded.configVersion = CURRENT_CONFIG_VERSION;
+					loaded.normalized();
+					return loaded;
+				}
+				// Unrecognized/older layout (e.g. a pre-grouping mod-info.yaml): keys won't line up
+				// with PersistedConfig, so a lenient parse would silently come back mostly-default.
+				// Keep the original bytes instead of discarding them without a trace.
+				LOGGER.warn("{} uses an older, incompatible layout (configVersion {}); "
+								+ "keeping it as mod-info.yaml.old.bak and starting fresh",
+						CONFIG_PATH, persisted == null ? "unknown" : persisted.configVersion);
+				Files.move(CONFIG_PATH, CONFIG_PATH.resolveSibling("mod-info.yaml.old.bak"),
+						StandardCopyOption.REPLACE_EXISTING);
 			} catch (Exception exception) {
 				LOGGER.warn("Could not read {}; using defaults", CONFIG_PATH, exception);
 				return new OverlayConfig();
@@ -146,42 +156,41 @@ public final class OverlayConfig {
 		PersistedConfig persisted = new PersistedConfig();
 		persisted.configVersion = configVersion;
 
-		persisted.info.showCoordinates = showCoordinates;
-		persisted.info.showBiome = showBiome;
-		persisted.info.showDaysPlayed = showDaysPlayed;
-		persisted.info.showFieldLabels = showFieldLabels;
-		persisted.info.showFacing = showFacing;
-		persisted.info.facingOnCoordinatesLine = facingOnCoordinatesLine;
-		persisted.info.headingLabel = headingLabel;
-		persisted.info.showClock = showClock;
-		persisted.info.clockShowDayNight = clockShowDayNight;
-		persisted.info.clockShowWeather = clockShowWeather;
+		persisted.info.navigation.coordinates = showCoordinates;
+		persisted.info.navigation.facing.show = showFacing;
+		persisted.info.navigation.facing.label = headingLabel;
+		persisted.info.navigation.facing.onCoordinatesLine = facingOnCoordinatesLine;
+		persisted.info.navigation.biome = showBiome;
+		persisted.info.duration.days = showDaysPlayed;
+		persisted.info.duration.clock.show = showClock;
+		persisted.info.duration.clock.showDayNight = clockShowDayNight;
+		persisted.info.duration.clock.showWeather = clockShowWeather;
+		persisted.info.appearance.background.show = showBackground;
+		persisted.info.appearance.background.opacity = backgroundOpacity;
+		persisted.info.appearance.box.size = boxSize;
+		persisted.info.appearance.box.fontSize = fontSize;
+		persisted.info.appearance.box.textAlignment = textAlignment;
+		persisted.info.appearance.box.position = position;
+		persisted.info.appearance.box.fieldLabels = showFieldLabels;
+		persisted.info.appearance.box.technicalLabels = technicalShowLabels;
+		persisted.info.technical.light = technicalShowLight;
+		persisted.info.technical.chunk = technicalShowChunk;
+		persisted.info.technical.slimeChunk = technicalShowSlimeChunk;
 
-		persisted.appearance.showBackground = showBackground;
-		persisted.appearance.backgroundOpacity = backgroundOpacity;
-		persisted.appearance.boxSize = boxSize;
-		persisted.appearance.fontSize = fontSize;
-		persisted.appearance.textAlignment = textAlignment;
-		persisted.appearance.position = position;
-		persisted.appearance.overlayToggleKey = toggleKey;
-		persisted.appearance.overlayToggleModifiers = toggleModifiers;
-
-		persisted.announcements.announceNewDay = announceNewDay;
-		persisted.announcements.announceNewBiome = announceNewBiome;
-		persisted.announcements.showDimension = biomeAnnouncementShowDimension;
-		persisted.announcements.showEntering = biomeAnnouncementShowEntering;
+		persisted.announcements.biome.announce.enabled = announceNewBiome;
+		persisted.announcements.biome.announce.dimension = biomeAnnouncementShowDimension;
+		persisted.announcements.biome.announce.entering = biomeAnnouncementShowEntering;
+		persisted.announcements.day.announce.enabled = announceNewDay;
 		persisted.announcements.manualContent = manualAnnouncementContent;
-		persisted.announcements.manualKey = manualAnnouncementKey;
-		persisted.announcements.manualModifiers = manualAnnouncementModifiers;
 
-		persisted.technical.showLight = technicalShowLight;
-		persisted.technical.showChunk = technicalShowChunk;
-		persisted.technical.showSlimeChunk = technicalShowSlimeChunk;
-		persisted.technical.showLabels = technicalShowLabels;
-		persisted.technical.toggleKey = technicalToggleKey;
-		persisted.technical.toggleModifiers = technicalToggleModifiers;
-		persisted.technical.frameRateToggleKey = frameRateToggleKey;
-		persisted.technical.frameRateToggleModifiers = frameRateToggleModifiers;
+		persisted.bindings.info.key = toggleKey;
+		persisted.bindings.info.modifiers = toggleModifiers;
+		persisted.bindings.technical.key = technicalToggleKey;
+		persisted.bindings.technical.modifiers = technicalToggleModifiers;
+		persisted.bindings.frameRate.key = frameRateToggleKey;
+		persisted.bindings.frameRate.modifiers = frameRateToggleModifiers;
+		persisted.bindings.announcements.key = manualAnnouncementKey;
+		persisted.bindings.announcements.modifiers = manualAnnouncementModifiers;
 
 		persisted.serverSeeds = serverSeedOverrides;
 		return persisted;
@@ -191,42 +200,41 @@ public final class OverlayConfig {
 		OverlayConfig config = new OverlayConfig();
 		config.configVersion = persisted.configVersion;
 
-		config.showCoordinates = persisted.info.showCoordinates;
-		config.showBiome = persisted.info.showBiome;
-		config.showDaysPlayed = persisted.info.showDaysPlayed;
-		config.showFieldLabels = persisted.info.showFieldLabels;
-		config.showFacing = persisted.info.showFacing;
-		config.facingOnCoordinatesLine = persisted.info.facingOnCoordinatesLine;
-		config.headingLabel = persisted.info.headingLabel;
-		config.showClock = persisted.info.showClock;
-		config.clockShowDayNight = persisted.info.clockShowDayNight;
-		config.clockShowWeather = persisted.info.clockShowWeather;
+		config.showCoordinates = persisted.info.navigation.coordinates;
+		config.showFacing = persisted.info.navigation.facing.show;
+		config.headingLabel = persisted.info.navigation.facing.label;
+		config.facingOnCoordinatesLine = persisted.info.navigation.facing.onCoordinatesLine;
+		config.showBiome = persisted.info.navigation.biome;
+		config.showDaysPlayed = persisted.info.duration.days;
+		config.showClock = persisted.info.duration.clock.show;
+		config.clockShowDayNight = persisted.info.duration.clock.showDayNight;
+		config.clockShowWeather = persisted.info.duration.clock.showWeather;
+		config.showBackground = persisted.info.appearance.background.show;
+		config.backgroundOpacity = persisted.info.appearance.background.opacity;
+		config.boxSize = persisted.info.appearance.box.size;
+		config.fontSize = persisted.info.appearance.box.fontSize;
+		config.textAlignment = persisted.info.appearance.box.textAlignment;
+		config.position = persisted.info.appearance.box.position;
+		config.showFieldLabels = persisted.info.appearance.box.fieldLabels;
+		config.technicalShowLabels = persisted.info.appearance.box.technicalLabels;
+		config.technicalShowLight = persisted.info.technical.light;
+		config.technicalShowChunk = persisted.info.technical.chunk;
+		config.technicalShowSlimeChunk = persisted.info.technical.slimeChunk;
 
-		config.showBackground = persisted.appearance.showBackground;
-		config.backgroundOpacity = persisted.appearance.backgroundOpacity;
-		config.boxSize = persisted.appearance.boxSize;
-		config.fontSize = persisted.appearance.fontSize;
-		config.textAlignment = persisted.appearance.textAlignment;
-		config.position = persisted.appearance.position;
-		config.toggleKey = persisted.appearance.overlayToggleKey;
-		config.toggleModifiers = persisted.appearance.overlayToggleModifiers;
-
-		config.announceNewDay = persisted.announcements.announceNewDay;
-		config.announceNewBiome = persisted.announcements.announceNewBiome;
-		config.biomeAnnouncementShowDimension = persisted.announcements.showDimension;
-		config.biomeAnnouncementShowEntering = persisted.announcements.showEntering;
+		config.announceNewBiome = persisted.announcements.biome.announce.enabled;
+		config.biomeAnnouncementShowDimension = persisted.announcements.biome.announce.dimension;
+		config.biomeAnnouncementShowEntering = persisted.announcements.biome.announce.entering;
+		config.announceNewDay = persisted.announcements.day.announce.enabled;
 		config.manualAnnouncementContent = persisted.announcements.manualContent;
-		config.manualAnnouncementKey = persisted.announcements.manualKey;
-		config.manualAnnouncementModifiers = persisted.announcements.manualModifiers;
 
-		config.technicalShowLight = persisted.technical.showLight;
-		config.technicalShowChunk = persisted.technical.showChunk;
-		config.technicalShowSlimeChunk = persisted.technical.showSlimeChunk;
-		config.technicalShowLabels = persisted.technical.showLabels;
-		config.technicalToggleKey = persisted.technical.toggleKey;
-		config.technicalToggleModifiers = persisted.technical.toggleModifiers;
-		config.frameRateToggleKey = persisted.technical.frameRateToggleKey;
-		config.frameRateToggleModifiers = persisted.technical.frameRateToggleModifiers;
+		config.toggleKey = persisted.bindings.info.key;
+		config.toggleModifiers = persisted.bindings.info.modifiers;
+		config.technicalToggleKey = persisted.bindings.technical.key;
+		config.technicalToggleModifiers = persisted.bindings.technical.modifiers;
+		config.frameRateToggleKey = persisted.bindings.frameRate.key;
+		config.frameRateToggleModifiers = persisted.bindings.frameRate.modifiers;
+		config.manualAnnouncementKey = persisted.bindings.announcements.key;
+		config.manualAnnouncementModifiers = persisted.bindings.announcements.modifiers;
 
 		config.serverSeedOverrides = persisted.serverSeeds == null
 				? new LinkedHashMap<>()
@@ -419,61 +427,115 @@ public final class OverlayConfig {
 	}
 
 	/**
-	 * On-disk shape of {@code mod-info.yaml}, grouped by the settings screen's own pages
-	 * ({@link ModInfoConfigScreen}) rather than mirroring this class's flat field layout.
+	 * On-disk shape of {@code mod-info.yaml} (see {@code src/config/example.yaml}), grouped by
+	 * theme rather than mirroring this class's flat field layout.
 	 */
 	private static final class PersistedConfig {
 		int configVersion = CURRENT_CONFIG_VERSION;
-		InfoSettings info = new InfoSettings();
-		AppearanceSettings appearance = new AppearanceSettings();
-		AnnouncementSettings announcements = new AnnouncementSettings();
-		TechnicalSettings technical = new TechnicalSettings();
+		InfoSection info = new InfoSection();
+		AnnouncementsSection announcements = new AnnouncementsSection();
+		BindingsSection bindings = new BindingsSection();
 		Map<String, ServerSeedProfiles> serverSeeds = new LinkedHashMap<>();
 	}
 
-	private static final class InfoSettings {
-		boolean showCoordinates = true;
-		boolean showBiome = true;
-		boolean showDaysPlayed = true;
-		boolean showFieldLabels = true;
-		boolean showFacing = false;
-		boolean facingOnCoordinatesLine = true;
-		HeadingLabel headingLabel = HeadingLabel.FACING;
-		boolean showClock = false;
-		boolean clockShowDayNight = true;
-		boolean clockShowWeather = true;
+	private static final class InfoSection {
+		NavigationSection navigation = new NavigationSection();
+		DurationSection duration = new DurationSection();
+		AppearanceSection appearance = new AppearanceSection();
+		TechnicalSection technical = new TechnicalSection();
 	}
 
-	private static final class AppearanceSettings {
-		boolean showBackground = true;
-		int backgroundOpacity = 56;
-		int boxSize = 100;
+	private static final class NavigationSection {
+		boolean coordinates = true;
+		FacingSection facing = new FacingSection();
+		boolean biome = true;
+	}
+
+	private static final class FacingSection {
+		boolean show = false;
+		HeadingLabel label = HeadingLabel.FACING;
+		boolean onCoordinatesLine = true;
+	}
+
+	private static final class DurationSection {
+		boolean days = true;
+		ClockSection clock = new ClockSection();
+	}
+
+	private static final class ClockSection {
+		boolean show = false;
+		boolean showDayNight = true;
+		boolean showWeather = true;
+	}
+
+	private static final class AppearanceSection {
+		BackgroundSection background = new BackgroundSection();
+		BoxSection box = new BoxSection();
+	}
+
+	private static final class BackgroundSection {
+		boolean show = true;
+		int opacity = 56;
+	}
+
+	private static final class BoxSection {
+		int size = 100;
 		int fontSize = 100;
 		TextAlignment textAlignment = TextAlignment.LEFT;
 		Position position = Position.TOP_LEFT;
-		int overlayToggleKey = -1;
-		int overlayToggleModifiers = 0;
+		boolean fieldLabels = true;
+		boolean technicalLabels = true;
 	}
 
-	private static final class AnnouncementSettings {
-		boolean announceNewDay = true;
-		boolean announceNewBiome = false;
-		boolean showDimension = false;
-		boolean showEntering = true;
+	private static final class TechnicalSection {
+		boolean light = true;
+		boolean chunk = true;
+		boolean slimeChunk = false;
+	}
+
+	private static final class AnnouncementsSection {
+		BiomeAnnouncementSection biome = new BiomeAnnouncementSection();
+		DayAnnouncementSection day = new DayAnnouncementSection();
 		ManualAnnouncementContent manualContent = ManualAnnouncementContent.BOTH;
-		int manualKey = InputConstants.KEY_N;
-		int manualModifiers = InputConstants.MOD_CONTROL;
 	}
 
-	private static final class TechnicalSettings {
-		boolean showLight = true;
-		boolean showChunk = true;
-		boolean showSlimeChunk = false;
-		boolean showLabels = true;
-		int toggleKey = InputConstants.KEY_I;
-		int toggleModifiers = InputConstants.MOD_CONTROL;
-		int frameRateToggleKey = -1;
-		int frameRateToggleModifiers = 0;
+	private static final class BiomeAnnouncementSection {
+		BiomeAnnounceDetails announce = new BiomeAnnounceDetails();
+	}
+
+	private static final class BiomeAnnounceDetails {
+		boolean enabled = false;
+		boolean dimension = false;
+		boolean entering = true;
+	}
+
+	private static final class DayAnnouncementSection {
+		DayAnnounceDetails announce = new DayAnnounceDetails();
+	}
+
+	private static final class DayAnnounceDetails {
+		boolean enabled = true;
+	}
+
+	private static final class BindingsSection {
+		KeyBinding info = new KeyBinding(-1, 0);
+		KeyBinding technical = new KeyBinding(InputConstants.KEY_I, InputConstants.MOD_CONTROL);
+		KeyBinding frameRate = new KeyBinding(-1, 0);
+		KeyBinding announcements = new KeyBinding(InputConstants.KEY_N, InputConstants.MOD_CONTROL);
+	}
+
+	private static final class KeyBinding {
+		int key;
+		int modifiers;
+
+		KeyBinding() {
+			this(-1, 0);
+		}
+
+		KeyBinding(int key, int modifiers) {
+			this.key = key;
+			this.modifiers = modifiers;
+		}
 	}
 
 	public static final class ServerSeedProfiles {
